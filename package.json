@@ -1,0 +1,55 @@
+{
+  "name": "bolt-module-notifications",
+  "version": "1.3.1",
+  "description": "Module to install /api/notifications routes in Bolt",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Chieze-Franklin/bolt-module-notifications"
+  },
+  "author": "Chieze Franklin",
+  "bugs": {
+    "url": "https://github.com/Chieze-Franklin/bolt-module-notifications/issues"
+  },
+  "dependencies": {
+    "bolt-internal-checks": "*",
+    "bolt-internal-config": "*",
+    "bolt-internal-defs": "*",
+    "bolt-internal-errors": "*",
+    "bolt-internal-get-routes": "*",
+    "bolt-internal-models": "*",
+    "bolt-internal-schemata": "*",
+    "bolt-internal-setup": "*",
+    "bolt-internal-utils": "*"
+  },
+  "keywords": [
+    "bolt",
+    "module",
+    "notifications",
+    "bolt-module-notifications"
+  ],
+  "bolt": {
+    "displayName": "Bolt Dashboard Module",
+    "collections": {
+      "notifications": {
+        "guests": "*",
+        "tenants": [
+          "bolt"
+        ]
+      },
+      "app-categories": {
+        "guests": "*",
+        "tenants": [
+          "bolt"
+        ]
+      }
+    },
+    "module": true,
+    "system": true,
+    "routers": {
+      "bolt-api-notifications": {
+        "main": "routers/api-notifications",
+        "root": "/api/notifications"
+      }
+    }
+  }
+}
