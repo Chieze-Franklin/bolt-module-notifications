@@ -1,6 +1,6 @@
 {
   "name": "bolt-module-notifications",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "description": "Module to install /api/notifications routes in Bolt",
   "repository": {
     "type": "git",
@@ -28,7 +28,7 @@
     "bolt-module-notifications"
   ],
   "bolt": {
-    "displayName": "Bolt Dashboard Module",
+    "displayName": "Bolt Notifications Module",
     "collections": {
       "notifications": {
         "guests": "*",
@@ -45,6 +45,12 @@
     },
     "module": true,
     "system": true,
+    "hooks": {
+      "bolt/app-uninstalled": {
+        "route": "/api/notifications/hooks/bolt/app-uninstalled",
+        "type": "router"
+      }
+    },
     "routers": {
       "bolt-api-notifications": {
         "main": "routers/api-notifications",

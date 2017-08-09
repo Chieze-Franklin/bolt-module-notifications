@@ -29,7 +29,11 @@ we have to use bolt's app token because bolt-module-dashboard can't have an app 
 		data: String //the url | post payload | phone number
 	}
 	]
-	from: String //username of sender
+	from: {
+		name: String //username of sender
+		displayName: String
+		displayPic: String
+	}
 	message: {
 		type: String //values: text | audio | file | image | video | page
 		data: String
@@ -45,7 +49,12 @@ we have to use bolt's app token because bolt-module-dashboard can't have an app 
 		loop: Boolean //(default false) if true, plays the sound in a loop
 		duration: Number //duration (in milliseconds) for which the loop is to last (there may be a system-defined max value)
 	}
-	to: [String] //array of usernames of recipients
+	subject: String
+	time: Date
+	to: {
+		users: [String]
+		roles: [String]
+	}
 	toast: {
 		message: String
 		duration: Number //duration (in milliseconds) for which the toast is to last (there may be a system-defined max value)
@@ -56,38 +65,69 @@ we have to use bolt's app token because bolt-module-dashboard can't have an app 
 
 module.exports = {
 	post: function(request, response){
-		if (utils.Misc.isNullOrUndefined(request.body.message)) {
+		/*if (utils.Misc.isNullOrUndefined(request.body.message)) {
 			var error = new Error(errors['520']);
 			response.end(utils.Misc.createResponse(null, error, 520));
 			return;
-		}
+		}*/
 
 		var notification = request.body;
 		notification.app = request.appName;
 
 		var message = request.body.message;
-		if (message.constructor === String) {
-			notification.message = {
-				type: 'text',
-				data: message
-			};
+		if(!utils.Misc.isNullOrUndefined(message)) {
+			if (message.constructor === String) {
+				notification.message = {
+					type: 'text',
+					data: message
+				};
+			}
 		}
 
-		superagent
-			.post(process.env.BOLT_ADDRESS + '/api/db/notifications/insert')
-			.set(X_BOLT_APP_TOKEN, request.bolt.token) //see **Impersonating Bolt** above to understand this line
-			.send({ app: 'bolt-module-notifications', object: notification })
-			.end(function(err, res) {
-				if (!utils.Misc.isNullOrUndefined(res)) {
-					if (res.body && res.body.body && res.body.body.insertedIds) {
-						notification._id = res.body.body.insertedIds[0];
-						notification.id = res.body.body.insertedIds[0];
+		//notification.subject = notification.subject || '<no subject>';
+		notification.time = new Date();
+		notification.type = notification.type || 'success';
+
+		if ((!utils.Misc.isNullOrUndefined(notification.options) && notification.options.transient) ||
+			utils.Misc.isNullOrUndefined(notification.message)) {
+			//do not save to db
+			utils.Events.fire('notification-posted', { body: notification }, request.bolt.token, function(eventError, eventResponse){});
+			response.send(utils.Misc.createResponse(notification));
+		}
+		else {
+			superagent
+				.post(process.env.BOLT_ADDRESS + '/api/db/notifications/insert')
+				.set(X_BOLT_APP_TOKEN, request.bolt.token) //see **Impersonating Bolt** above to understand this line
+				.send({ app: 'bolt-module-notifications', object: notification })
+				.end(function(err, res) {
+					if (!utils.Misc.isNullOrUndefined(res)) {
+						if (res.body && res.body.body && res.body.body.insertedIds) {
+							notification._id = res.body.body.insertedIds[0];
+							notification.id = res.body.body.insertedIds[0];
+						}
 					}
-				}
-					
-				utils.Events.fire('notification-posted', { body: notification }, request.bolt.token, function(eventError, eventResponse){});
-				response.send(utils.Misc.createResponse(notification, err));
-			});
+						
+					utils.Events.fire('notification-posted', { body: notification }, request.bolt.token, function(eventError, eventResponse){});
+					response.send(utils.Misc.createResponse(notification, err));
+				});
+		}
+	},
+	postPostBack: function(request, response){
+		/*if (utils.Misc.isNullOrUndefined(request.body.message)) {
+			var error = new Error(errors['520']);
+			response.end(utils.Misc.createResponse(null, error, 520));
+			return;
+		}*/
+
+		var notification = request.body;
+		notification.app = request.appName;
+
+		if ((!utils.Misc.isNullOrUndefined(notification.options) && notification.options.transient) ||
+			utils.Misc.isNullOrUndefined(notification.message)) {
+			//do not save to db
+			utils.Events.fire('notification-posted', { body: notification }, request.bolt.token, function(eventError, eventResponse){});
+			response.send(utils.Misc.createResponse(notification));
+		}
 	},
 	postUnsuspend: function(request, response){
 		var appsToResume = request.body.apps || [];
@@ -154,5 +194,25 @@ module.exports = {
 						response.send(utils.Misc.createResponse(res, err));
 					});
 			});
+	},
+
+	hookForBoltAppUninstalled: function(request, response){
+		var event = request.body;
+		if (event.token == request.bolt.token) {
+			var app = event.body;
+
+			var appName = app.name;
+
+			superagent
+				.post(process.env.BOLT_ADDRESS + '/api/db/notifications/remove?app=' + appName)
+				.set(X_BOLT_APP_TOKEN, request.bolt.token) //impersonating Bolt
+				.send({ app: 'bolt-module-notifications' })
+				.end(function(err, res) {
+					//TODO: get the notification deleted
+					utils.Events.fire('notification-deleted', { body: { app: appName } }, request.bolt.token, function(eventError, eventResponse){});
+				});
+			
+			response.send(utils.Misc.createResponse({ app: appName }));
+		}
 	}
 };
