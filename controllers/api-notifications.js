@@ -113,20 +113,34 @@ module.exports = {
 		}
 	},
 	postPostBack: function(request, response){
-		/*if (utils.Misc.isNullOrUndefined(request.body.message)) {
-			var error = new Error(errors['520']);
-			response.end(utils.Misc.createResponse(null, error, 520));
-			return;
-		}*/
+		var postback = request.body;
 
-		var notification = request.body;
-		notification.app = request.appName;
-
-		if ((!utils.Misc.isNullOrUndefined(notification.options) && notification.options.transient) ||
-			utils.Misc.isNullOrUndefined(notification.message)) {
-			//do not save to db
-			utils.Events.fire('notification-posted', { body: notification }, request.bolt.token, function(eventError, eventResponse){});
-			response.send(utils.Misc.createResponse(notification));
+		if (!utils.Misc.isNullOrUndefined(postback) && !utils.Misc.isNullOrUndefined(postback.data) && 
+			!utils.Misc.isNullOrUndefined(request.user)) {
+			
+			superagent
+				.post(process.env.BOLT_ADDRESS + '/api/db/notifications/findone?_id=' + postback.notificationId)
+				.set(X_BOLT_APP_TOKEN, request.bolt.token) //see **Impersonating Bolt** above to understand this line
+				.send({ app: 'bolt-module-notifications' })
+				.end(function(err, res) {
+					if (res && res.body && res.body.body && res.body.body) {
+						var notification = res.body.body;
+						
+						utils.Events.fire('notification-postback', 
+							{ body: {notification: notification, postback: postback, user: request.user}, 
+							subscribers: [notification.app] }, 
+							request.bolt.token, function(eventError, eventResponse){});
+						response.send(utils.Misc.createResponse(notification));
+					}
+					else {
+						//TODO: what do I send
+						response.send(utils.Misc.createResponse({}));
+					}
+				});
+		}
+		else {
+			//TODO: what do I send
+			response.send(utils.Misc.createResponse({}));
 		}
 	},
 	postUnsuspend: function(request, response){
